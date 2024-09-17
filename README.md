@@ -7,7 +7,7 @@ This is a basic networking quiz game implemented using Python and sockets.
 2. **Connect the clients:** Run the 'client.py' script on two or three different machines or terminals.
 3. **Play the game:** Players will be shown a question about networking and whoever answers first will win the point! The first player to get 10 questions right wins!
 
-## Technologies used
+## Technologies Used
 * Python
 * Sockets
 
@@ -17,34 +17,69 @@ networking-quiz-game
 ### Team:
 Rylie Denehan
 ### Project Objective:
-The goal of this project is to create a quiz show capability using knowledge gained from the CS457 course about servers, clients, networks, etc. This quiz show will quiz contestants on questions consisting of the CS457 material and act as an additional study resource for the midterm and final.
+The goal of this project is to create a quiz show capability using knowledge gained from the CS457 course about servers, clients, sockets, etc. This quiz show will quiz contestants on questions consisting of the CS457 material and act as an additional study resource for the midterm and final.
 ### Scope:
 #### Inclusions:
-•	[List the specific tasks, features, or components that will be included in the project.]
+* TCP Server
+* TCP Client
+* Message Protocol
+* Multi-Player Functionality
+* Synchronized Client States
+* Game Play
+* Game State
+* Game UI
+* Error Handling
+* Encryption  
 #### Exclusions:
-•	[List any tasks, features, or components that will not be included in the project.]
+* Web Server/Client UI
 ### Deliverables:
-•	[List the expected outputs or deliverables from the project, such as a working Python script, documentation, or presentations.]
+* Working Python server and client scripts
+* Working Python quiz-game script
+* Gameplay Documentation
+* SSL/TLS Encryption
 ### Timeline:
 #### Key Milestones:
-•	[Outline the major milestones or checkpoints throughout the project, with estimated completion dates.]
+* Sprint 0: Setup Tool/GitHub and Submit SOW - estimated completion date: 9/22/2024
+* Sprint 1: Implement TCP Server and Client with Encryption - estimated completion date: 10/6/2024
+* Sprint 2: Design and Implement Message Protocol - estimated completion date: 10/20/2024
+* Sprint 3: Implement Multi-Player Functionality and Synchronize State Across Clients - estimated completion date: 11/3/2024
+* Sprint 4: Design and Implment Game Play, Game State, and UI - estimated completion date: 11/17/2024
+* Sprint 5: Implement Error Handling and Testing - estimated completion date: 12/6/2024
 #### Task Breakdown:
 •	[Create a detailed breakdown of tasks, assigning estimated hours or days to each.]
+* 
 ### Technical Requirements:
 #### Hardware:
 •	[Specify any hardware requirements, such as servers, networking equipment, or specific devices.]
 #### Software:
-•	[List the necessary software tools, programming languages (Python), libraries (socket, threading, etc.), and operating systems.]
+* Python
+* Git
+* Visual Studio Code
+* Windows 11
+* Linux
+* Python socket library
+* Python threading library
+* Python ssl library
+* Python tkinter library
 ### Assumptions:
-•	[State any assumptions that are being made about the project, such as network connectivity or availability of resources.]
+It is assumed that the CSU CS Lab computers will be available to run the Python scripts. It is also assumed that players have the resources to/understanding of how to run Python scripts.
 ### Roles and Responsibilities:
-•	[Define the roles of team members, including project manager, developers, testers, etc., and their responsibilities.]
+As a single person team, I will be all roles of project manager, developer, and tester:
+* Project Manager Responsibilities:
+* Developer Responsibilities:
+* Tester Responsibilities: 
 ### Communication Plan:
-•	[Outline the communication channels and frequency for project updates, meetings, and decision-making.]
+As a single person team, a communication channel is not needed.
+
+The frequency of project updates will be at least 3 times weekly.
 ### Additional Notes:
 •	[Include any other relevant information or considerations that are specific to your project.]
 
 
+
 ## Additional Resources
-* [socket Python Documentation](https://docs.python.org/3/library/socketserver.html#module-socketserver)
+* [socket Python Documentation](https://docs.python.org/3/library/socket.html)
+* [threading Python Documentation](https://docs.python.org/3/library/threading.html)
+* [tkinter Python Documentation](https://docs.python.org/3/library/tkinter.html)
+* [ssl Python Documentation](https://docs.python.org/3/library/ssl.html)
 * [Sockets Tutorial](https://realpython.com/python-sockets/)
