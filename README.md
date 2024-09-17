@@ -2,12 +2,12 @@
 This is a basic networking quiz game implemented using Python and sockets.
 ![jeopardy](https://github.com/user-attachments/assets/003effb0-ed99-4513-a5cd-e2f429822ffe)
 
-## How to Play:
+## How to Play
 1. **Start the server:** Run the 'server.py' script.
 2. **Connect the clients:** Run the 'client.py' script on two or three different machines or terminals.
 3. **Play the game:** Players will be shown a question about networking and whoever answers first will win the point! The first player to get 10 questions right wins!
 
-## Technologies used:
+## Technologies used
 * Python
 * Sockets
 
@@ -45,6 +45,6 @@ The goal of this project is to create a quiz show capability using knowledge gai
 •	[Include any other relevant information or considerations that are specific to your project.]
 
 
-## Additional Resources:
+## Additional Resources
 * [socket Python Documentation](https://docs.python.org/3/library/socketserver.html#module-socketserver)
 * [Sockets Tutorial](https://realpython.com/python-sockets/)
