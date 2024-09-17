@@ -47,10 +47,51 @@ The goal of this project is to create a quiz show capability using knowledge gai
 * Sprint 5: Implement Error Handling and Testing - estimated completion date: 12/6/2024
 #### Task Breakdown:
 •	[Create a detailed breakdown of tasks, assigning estimated hours or days to each.]
-* 
+* Sprint 0: Setup Tools
+
+  a) Install necessary software and setup version control - 2 hours
+* Sprint 0: Submit SOW
+
+  a) Create and review Statement of Work for this project using the provided template - 2 hours
+* Sprint 1: Basic Server Setup
+
+   a) Create a server-side application that listens for incoming client connections on a specified port.
+       
+   b) Implement a mechanism to handle multiple client connections simultaneously.
+       
+   c) Log connection and disconnection events.
+* Sprint 1: Client-Side Connection
+
+   a) Develop a client-side application that can connect to the server.
+
+   b) Implement error handling for failed connection attempts.
+
+   c) Log connection and disconnection events.
+* Sprint 1: Simple Message Exchang
+   a) Establish a basic communication protocol between the server and clients.
+       
+   b) Implement functions to send and receive messages.
+       
+   c)Test the communication by sending simple messages back and forth.
+* Sprint 1: Error Handling
+
+   a) Implement basic error handling for network-related issues (e.g., connection timeouts, socket errors).
+
+   b) Log error messages for debugging purposes.
+* Sprint 1: Testing and Debugging
+
+   a) Test the server's ability to handle multiple client connections.
+
+   b) Verify that clients can connect to the server and exchange messages.
+
+   c) Debug any issues related to network communication or socket operations.
+* Sprint 1: Update README
+
 ### Technical Requirements:
 #### Hardware:
 •	[Specify any hardware requirements, such as servers, networking equipment, or specific devices.]
+* Server (CSU CS Lab computer)
+* Router (for Internet Connection to Server)
 #### Software:
 * Python
 * Git
