@@ -27,7 +27,7 @@ The goal of this project is to create a quiz show capability using knowledge gai
 ### Timeline:
 #### Key Milestones:
 * Sprint 0: Setup Tool/GitHub and Submit SOW - estimated completion date: 9/22/2024
-* Sprint 1: Implement TCP Server and Client with Encryption - estimated completion date: 10/6/2024
+* Sprint 1: Implement TCP Server and Client - estimated completion date: 10/6/2024
 * Sprint 2: Design and Implement Message Protocol - estimated completion date: 10/20/2024
 * Sprint 3: Implement Multi-Player Functionality and Synchronize State Across Clients - estimated completion date: 11/3/2024
 * Sprint 4: Design and Implment Game Play, Game State, and UI - estimated completion date: 11/17/2024
@@ -41,39 +41,39 @@ The goal of this project is to create a quiz show capability using knowledge gai
   a) Create and review Statement of Work for this project using the provided template. (2 hours to complete)
 * Sprint 1: Basic Server Setup
 
-   a) Create a server-side application that listens for incoming client connections on a specified port. (2 hours to complete)
+   a) Create a server-side application that listens for incoming client connections on a specified port. (30 minutes to complete)
        
-   b) Implement a mechanism to handle multiple client connections simultaneously.(2 hours to complete)
+   b) Implement a mechanism to handle multiple client connections simultaneously.(30 minutes to complete)
        
-   c) Log connection and disconnection events. (1 hour to complete)
+   c) Log connection and disconnection events. (30 minutes to complete)
 * Sprint 1: Client-Side Connection
 
-   a) Develop a client-side application that can connect to the server. (2 hours to complete)
+   a) Develop a client-side application that can connect to the server. (30 minutes to complete)
 
-   b) Implement error handling for failed connection attempts. (2 hours to complete)
+   b) Implement error handling for failed connection attempts. (30 minutes to complete)
 
-   c) Log connection and disconnection events. (1 hour to complete)
+   c) Log connection and disconnection events. (30 minutes to complete)
 * Sprint 1: Simple Message Exchange
-   a) Establish a basic communication protocol between the server and clients. (2 hours to complete)
+   a) Establish a basic communication protocol between the server and clients. (30 minutes to complete)
        
-   b) Implement functions to send and receive messages. (2 hours to complete)
+   b) Implement functions to send and receive messages. (30 minutes to complete)
        
-   c)Test the communication by sending simple messages back and forth. (1 hour to complete)
+   c)Test the communication by sending simple messages back and forth. (15 minutes to complete)
 * Sprint 1: Error Handling
 
-   a) Implement basic error handling for network-related issues (e.g., connection timeouts, socket errors). (2 hours to complete)
+   a) Implement basic error handling for network-related issues (e.g., connection timeouts, socket errors). (30 minutes to complete)
 
-   b) Log error messages for debugging purposes. (1 hour to complete)
+   b) Log error messages for debugging purposes. (30 minutes to complete)
 * Sprint 1: Testing and Debugging
 
-   a) Test the server's ability to handle multiple client connections. (1 hour to complete)
+   a) Test the server's ability to handle multiple client connections. (15 minutes to complete)
 
-   b) Verify that clients can connect to the server and exchange messages. (1 hour to complete)
+   b) Verify that clients can connect to the server and exchange messages. (15 minutes to complete)
 
-   c) Debug any issues related to network communication or socket operations. (1 hour to complete)
+   c) Debug any issues related to network communication or socket operations. (15 minutes to complete)
 * Sprint 1: Update README
 
-   a) Update the GitHub README to reflect the capabilities added during Sprint 1. (1 hour to complete)
+   a) Update the GitHub README to reflect the capabilities added during Sprint 1. (30 minutes to complete)
 * Sprint 2: Game Message Protocol Specification 
 
    a) Define the structure and format of messages exchanged between the server and clients. (2 hours to complete)
