@@ -83,12 +83,18 @@ The goal of this project is to create a quiz show capability using knowledge gai
    c) Consider using a well-defined protocol like JSON or Protocol Buffers for serialization and deserialization. (2 hours to complete)
 * Sprint 2: Server-Side Message Handling 
 
-   a) Implement functions to receive, parse, and process incoming messages from clients. (2 hours to complete)
+   a) Implement functions to receive, parse, and process incoming messages from clients. (4 hours to complete)
    
-   b) Handle different message types appropriately (e.g., join requests, move commands, chat messages). (2 hours to complete)
+   b) Handle different message types appropriately (e.g., join requests, move commands, chat messages). (1 hour to complete)
    
    c) Maintain a list of connected clients and their associated game state. (1 hour to complete)
+* Sprint 2: Client-Side Message Handling
 
+  a) Implement functions to send messages to the server and handle incoming responses. (4 hours to complete)
+
+  b) Parse server responses and update the client's game state accordingly. (1 hour to complete)
+
+  c) Provide feedback to the user about the game's progress and any errors. (1 hour to complete)
 * Sprint 2: Connection Management
 
    a) Implement mechanisms to handle client connections and disconnections. (2 hours to complete)
