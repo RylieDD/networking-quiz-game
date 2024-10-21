@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 
 import struct
@@ -13,7 +12,7 @@ sel = selectors.DefaultSelector()
 
 
 def create_request(action):
-    if action == "quiz" or action == "help" or action == "rules":
+    if action != "exit":
         return dict(
             type="text/json",
             encoding="utf-8",
@@ -23,7 +22,7 @@ def create_request(action):
 
 def start_connection(host, port, request):
     addr = (host, port)
-    print("starting connection to", addr)
+    print("Welcome to The Networking Quiz Game")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setblocking(False)
     sock.connect_ex(addr)

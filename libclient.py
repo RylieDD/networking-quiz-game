@@ -46,8 +46,9 @@ class Message:
 
     def _write(self):
         if self._send_buffer:
-            content = self.request.get('content')
-            print("sending", repr(content), "to", self.addr)
+            # print (self.request.get('action'))
+            # content = self.request.get('content')
+            # print("sending", repr(content), "to", self.addr)
             try:
                 # Should be ready to write
                 sent = self.sock.send(self._send_buffer)
@@ -82,9 +83,16 @@ class Message:
         message = message_hdr + jsonheader_bytes + content_bytes
         return message
 
+    def _game_state(self, result):
+        #need to update the output of GameState
+        
+        return result
+
+    # GameState updates printed here, call gameState class to update the current GameState
     def _process_response_json_content(self):
         content = self.response
         result = content.get("result")
+        # gameState = self._game_state(result)
         print(f"{result}")
 
     def process_events(self, mask):
@@ -109,7 +117,7 @@ class Message:
 
     def write(self):
         if not self._request_queued:
-            self.queue_request()
+            self.queue_request(None)
 
         self._write()
 
@@ -119,7 +127,7 @@ class Message:
                 self._set_selector_events_mask("r")
 
     def close(self):
-        print("closing connection to", self.addr)
+        print("You are now disconnected, goodbye!")
         try:
             self.selector.unregister(self.sock)
         except Exception as e:
@@ -139,25 +147,42 @@ class Message:
             # Delete reference to socket object for garbage collection
             self.sock = None
 
-    def queue_request(self):
+    def game_state(self, content):
+        userGameState = {}
+        userGameState.update(content)
+        print(f"User's game state is:", userGameState)
+    
+    def queue_request(self, user_input):
         content = self.request["content"]
         content_type = self.request["type"]
         content_encoding = self.request["encoding"]
-        if content_type == "text/json":
+
+        if user_input is not None:
+            self._send_buffer = b""
+            content = {"action": user_input}
             req = {
-                "content_bytes": self._json_encode(content, content_encoding),
-                "content_type": content_type,
-                "content_encoding": content_encoding,
-            }
+                    "content_bytes": self._json_encode(content, content_encoding),
+                    "content_type": content_type,
+                    "content_encoding": content_encoding,
+                }
+
         else:
-            req = {
-                "content_bytes": content,
-                "content_type": content_type,
-                "content_encoding": content_encoding,
-            }
+            if content_type == "text/json":
+                req = {
+                    "content_bytes": self._json_encode(content, content_encoding),
+                    "content_type": content_type,
+                    "content_encoding": content_encoding,
+                }
+            #else:
+             #   req = {
+              #      "content_bytes": content,
+               #     "content_type": content_type,
+                #    "content_encoding": content_encoding,
+                #}
         message = self._create_message(**req)
         self._send_buffer += message
         self._request_queued = True
+        self.game_state(content)
 
     def process_protoheader(self):
         hdrlen = 2
@@ -192,7 +217,17 @@ class Message:
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
             self.response = self._json_decode(data, encoding)
-            # print("received response", repr(self.response), "from", self.addr)
             self._process_response_json_content()
-        # Close when response has been processed
-        self.close()
+        self._recv_buffer = b""
+        self._send_buffer = b""
+        self._request_queued = False
+        self._jsonheader_len = None
+        self.jsonheader = None
+        self.response = None
+        self._set_selector_events_mask("rw")
+        user_input = input("Enter new command (or 'exit' to quit): ")
+        # Close if exit action exists
+        if user_input.lower() == "exit":
+            self.close()
+        else:
+            self.queue_request(user_input)
