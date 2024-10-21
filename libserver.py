@@ -5,11 +5,6 @@ import json
 import io
 import struct
 
-request_search = {
-    "help": "Please enter the following format: app-client.py <host> <port> <action>, where <action> is either quiz or rules",
-    "quiz": "\U0001F6A7 The networking quiz is under construction, please try again next Sprint \U0001F6A7",
-    "rules": "\U0001F4DC Rules for the networking quiz are being defined, please try again next Sprint \U0001F4DC"
-}
 
 
 class Message:
@@ -23,6 +18,7 @@ class Message:
         self.jsonheader = None
         self.request = None
         self.response_created = False
+        self.connections = {}
 
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
@@ -40,20 +36,19 @@ class Message:
         try:
             # Should be ready to read
             data = self.sock.recv(4096)
+            self.game_connections()
         except BlockingIOError:
             # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         else:
             if data:
+                self._recv_buffer = b"" 
                 self._recv_buffer += data
             else:
                 raise RuntimeError("Peer closed.")
 
     def _write(self):
         if self._send_buffer:
-            # content = self._send_buffer.get('content')
-            action = self.request.get("action")
-            print("sending", repr(action), "to", self.addr)
             try:
                 # Should be ready to write
                 sent = self.sock.send(self._send_buffer)
@@ -62,9 +57,11 @@ class Message:
                 pass
             else:
                 self._send_buffer = self._send_buffer[sent:]
+
                 # Close when the buffer is drained. The response has been sent.
-                if sent and not self._send_buffer:
-                    self.close()
+                # if sent and not self._send_buffer:
+                    # self.close()
+        self._send_buffer = b""
 
     def _json_encode(self, obj, encoding):
         return json.dumps(obj, ensure_ascii=False).encode(encoding)
@@ -91,10 +88,24 @@ class Message:
         message = message_hdr + jsonheader_bytes + content_bytes
         return message
 
+    def user_action(self, action):
+        userAction = {
+            "help": "Please enter the following format: app-client.py <host> <port> <action>, where <action> is either join or rules or help",
+            "join": "\U0001F6A7 The networking quiz is under construction, please try again next Sprint \U0001F6A7",
+            "rules": "\U0001F56D Choose the correct answer (A, B, C, or D) to the question on screen! The first to answer correctly gets 1 point. \U0001F56D"
+        }
+        response = userAction.get(action)
+        # this is where the Sprint 4 gameplay will go
+        # if response == "join":
+             # enter gameplay options which will be answering A, B, C, D 
+        return response
+    
     def _create_response_json_content(self):
         action = self.request.get("action")
-        if action == "help" or action == "quiz" or action == "rules":
-            answer = request_search.get(action) or f'No match for "{action}".'
+        #   Go into _user_action class with related actions 
+        if action == "help" or action == "join" or action == "rules":
+            #answer = request_search.get(action) or f'No match for "{action}".'
+            answer = self.user_action(action)
             content = {"result": answer}
         else:
             content = {"result": f'Error: invalid action "{action}".'}
@@ -134,7 +145,7 @@ class Message:
         self._write()
 
     def close(self):
-        print("closing connection to", self.addr)
+        self.del_connection(self.addr)
         try:
             self.selector.unregister(self.sock)
         except Exception as e:
@@ -180,19 +191,42 @@ class Message:
 
     def process_request(self):
         content_len = self.jsonheader["content-length"]
-        if not len(self._recv_buffer) >= content_len:
+        if len(self._recv_buffer) < content_len:
             return
+        # self._recv_buffer = self._recv_buffer[:content_len]
         data = self._recv_buffer[:content_len]
-        self._recv_buffer = self._recv_buffer[content_len:]
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
             self.request = self._json_decode(data, encoding)
-            print("received request", repr(self.request), "from", self.addr)
-        self._set_selector_events_mask("w")
+            request = self.request.get("action")
+            print("received request", repr(request), "from", self.addr)
+        self._recv_buffer = b""
+        self._set_selector_events_mask("rw")
 
     def create_response(self):
         if self.jsonheader["content-type"] == "text/json":
             response = self._create_response_json_content()
         message = self._create_message(**response)
+        response = self.request.get("action")
+        print("sending response", repr(response), "to", self.addr)
         self.response_created = True
         self._send_buffer += message
+        self._set_selector_events_mask("rw")
+        self.request = None
+        self.response_created = False
+        self.jsonheader = None
+        self._jsonheader_len = None
+
+    def game_connections(self):
+        n = 0
+        name = "Client" + str(n)
+        if name not in self.connections:
+            n += 1
+            self.connections[name] = self.addr
+            print(f"{name} connected from {self.addr}")  
+    
+    def del_connection(self, addr):
+        for key, value in list(self.connections.items()):
+            if value == addr:
+                print(f"", key, "disconnected.")
+                del self.connections[key]
