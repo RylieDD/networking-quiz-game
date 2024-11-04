@@ -107,28 +107,24 @@ The goal of this project is to create a quiz show capability using knowledge gai
    a) Update the GitHub README to reflect the capabilities added during Sprint 2. (1 hour to complete)
 * Sprint 3: Game State Synchronization
 
-   a) Implement a mechanism to synchronize the game state across all connected clients. (2 hours to complete)
+   a) Implement a mechanism to synchronize the game state across all connected clients. (3 hours to complete)
    
-   b) Use a central server to broadcast game state updates to all clients. (2 hours to complete)
+   b) Use a central server to broadcast game state updates to all clients. (3 hours to complete)
    
    c) Implement techniques to handle network latency and ensure consistent gameplay. (2 hours to complete)
 * Sprint 3: Client-Side Game Rendering
 
-   a) Develop the client-side logic to render the game state based on updates received from the server. (3 hours to complete)
+   a) Develop the client-side logic to render the game state based on updates received from the server. (2 hours to complete)
    
-   b) Ensure that all clients display the same game state/board and player updates/moves. (1 hour to complete)
+   b) Ensure that all clients display the same game state/board and player updates/moves. (2 hour to complete)
 * Sprint 3: Turn-Based Gameplay
-
-   a) Implement a system to manage player turns and ensure that only the current player can make moves. (3 hours to complete)
    
-   b) If players compete for first time to answer implement the functionality to determine which player responded first. (2 hours to complete)
-   
-   c) Synchronize turn information across all clients. (2 hours to complete)
+   a) Synchronize turn information across all clients. (2 hours to complete)
 * Sprint 3: Player Identification 
    
    a) Assign unique identifiers to each player to distinguish them and track their game state. (2 hours to complete)
    
-   b) Allow players to choose or be assigned unique usernames or avatars. (2 hours to complete)
+   b) Allow players to choose or be assigned unique usernames or avatars. (1 hour to complete)
 * Sprint 3: Update README
 
    a) Update the GitHub README to reflect the capabilities added during Sprint 3. (1 hour to complete)
