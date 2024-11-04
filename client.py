@@ -18,6 +18,8 @@ def create_request(action):
             encoding="utf-8",
             content=dict(action=action),
         )
+    else:
+        sys.exit(1)
 
 
 def start_connection(host, port, request):
@@ -32,7 +34,7 @@ def start_connection(host, port, request):
 
 
 if len(sys.argv) != 4:
-    print("usage:", sys.argv[0], "<host> <port> <action>")
+    print("usage:", sys.argv[0], "<host> <port> <username>")
     sys.exit(1)
 
 host, port = sys.argv[1], int(sys.argv[2])
