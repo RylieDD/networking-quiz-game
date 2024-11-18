@@ -23,6 +23,9 @@ class Message:
         self.username = None
         self.score = 0
         self.quizStart = False
+        self.wait = False
+        self.first_ques = False
+        self.answered = False
 
         #Setup logging
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -99,13 +102,11 @@ class Message:
     # GameState updates printed here, call game_state class to update the current GameState
     def _process_response_json_content(self):
         content = self.response
-        action = content.get("action")
-        #
-        if action == "question" or action == "answer":
-                self.game_state(content)
+        if content.get("answer") or content.get("question"):
+            self.game_state(content)
         else:
             result = content.get("result")
-            print(f"{result}")
+            print(result)
 
     def process_events(self, mask):
         if mask & selectors.EVENT_READ:
@@ -159,14 +160,16 @@ class Message:
         question = content.get("question")
         options = content.get("options")
         if content.get("question"):
-            print(f'Question:', question)
-            print(f'Options:', options)
+            print("Question: ", question)
+            print("Options: ", options)
             self.user_inputs()
         #Next two elifs calculates the user's score based on the returned answer from the server 
         elif content.get("result") == "You answered correctly":
             self.score += 1
+            self.answered = True
             print(content.get("result"))
         elif content.get("result") == "You answered incorrectly":
+            self.answered = True
             print(content.get("result"))
         #The user state is updated and printed to the client
         userGameState.update(user=self.username, address=self.addr, score=self.score)
@@ -176,12 +179,11 @@ class Message:
         content = self.request["content"]
         content_type = self.request["type"]
         content_encoding = self.request["encoding"]
-
         if user_input is not None:
             self._send_buffer = b""
             content = {"action": user_input}
+            content_type == "text/json"
         else:
-            self.username = content.get("action")
             content_type == "text/json"
         req = {
                 "content_bytes": self._json_encode(content, content_encoding),
@@ -238,18 +240,48 @@ class Message:
         self.user_inputs()
 
     def user_inputs(self):
-        user_input = input("Enter input (or 'exit' to quit): ")
+        if self.username == None:
+            user_input = input("Enter a username: ")
+            self.queue_request(user_input)
+            self.username = user_input
+        elif self.quizStart is False and self.first_ques == False:
+            user_input = input("Enter join for the quiz game or rules to see the quiz game rules: ")
+            if user_input == "join":
+                self.first_ques = True
+            self.queue_request(user_input)
+        elif self.quizStart is False and self.first_ques == True and self.wait is False:
+            user_input = input("Enter wait or start: ")
+            if user_input == "start":
+                self.quizStart = True
+                self.wait = False
+            self.queue_request(user_input)
+        elif self.wait is True:
+            user_input = input("Enter start when ready to start the game: ")
+            if user_input == "start":
+                self.quizStart is True
+                self.wait is False
+                self.queue_request(user_input)
+            else: 
+                print ("Unknown input, please enter start when ready to start the game: ")
+        elif self.quizStart is True and self.wait is False:
+            if self.answered == False:
+                # This is where the clients answer the question before it the answer is sent to the server
+                user_input = input("Enter your answer to the question: ")
+                if user_input.lower() == "a" or user_input.lower() == "b" or user_input.lower() == "c" or user_input.lower() == "d":
+                    print("You are answering ", user_input)
+                    self.queue_request(user_input)
+                elif user_input.lower() == "exit":
+                    self.close()
+                else:
+                    print("You did not provide an answer")
+                    self.queue_request("none")
+            else:
+                self.queue_request("question")
+                self.answered = False
         # Close if exit action exists
-        if user_input.lower() == "exit":
+        elif user_input.lower() == "exit":
             self.close()
-        elif user_input.lower() == "join":
-            print(f"The Quiz is beginning! When the question appears, you will have 10 seconds enter the correct response of A, B, C, or D.")
-            #Adding pause for users to read the quiz rules
-            time.sleep(5)
-            self.quizStart = True
-            self.queue_request(user_input)
-        elif user_input.lower() == "a" or user_input.lower() == "b" or user_input.lower() == "c" or user_input.lower() == "d":
-            print(f'You are answering ', user_input)
-            self.queue_request(user_input)
         else:
-            self.queue_request(user_input)
+            print("That is not valid input, please try again")
+            #self.queue_request(user_input)
+        
