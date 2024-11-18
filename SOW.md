@@ -135,14 +135,14 @@ The goal of this project is to create a quiz show capability using knowledge gai
    b) Store information about the current player, the game board, and any relevant game settings. (2 hours to complete)
 * Sprint 4: Input Handling
 
-   a) Implement functions to handle user input (e.g., mouse clicks, keyboard input) and translate it into game actions (e.g., placing a piece on the board). (2 hours to complete)
+   a) Implement functions to handle user input (e.g., mouse clicks, keyboard input) and translate it into game actions (e.g., placing a piece on the board). (1 hour to complete)
    
    b) Validate user input to ensure it is within the game's boundaries and rules. (1 hour to complete)
 * Sprint 4: Winning Conditions
 
    a) Define the conditions for winning the game (e.g., three in a row, diagonal, etc.). (1 hour to complete)
    
-   b) Implement logic to check for winning conditions after each move. (1 hour to complete)
+   b) Implement logic to check for winning conditions after each move. (2 hours to complete)
    
    c) Notify players when a winner is determined or the game ends in a draw. (1 hour to complete)
 * Sprint 4: Game Over Handling 
