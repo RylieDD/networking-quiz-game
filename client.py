@@ -24,7 +24,6 @@ def create_request(action):
 
 def start_connection(host, port, request):
     addr = (host, port)
-    print("Welcome to The Networking Quiz Game")
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setblocking(False)
     sock.connect_ex(addr)
@@ -32,13 +31,13 @@ def start_connection(host, port, request):
     message = libclient.Message(sel, sock, addr, request)
     sel.register(sock, events, data=message)
 
-
-if len(sys.argv) != 4:
-    print("usage:", sys.argv[0], "<host> <port> <username>")
+# Remove the username addition from the first connection 
+if len(sys.argv) != 5:
+    print("usage:", sys.argv[0], "-i <host> -p <port>")
     sys.exit(1)
 
-host, port = sys.argv[1], int(sys.argv[2])
-action = sys.argv[3]
+host, port = sys.argv[2], int(sys.argv[4])
+action = "connect"
 request = create_request(action)
 start_connection(host, port, request)
 
