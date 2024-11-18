@@ -1,5 +1,4 @@
 
-import asyncio
 import random
 import sys
 import selectors
@@ -24,10 +23,11 @@ class Message:
         self.response_created = False
         self.username = None
         self.connections = {}
-        self.first_request = True
-        self._join_req = False
         self.num_ques = 0
         self.question = None
+        self.quizStart = False
+        self.first_con = True
+        self.score = 0
         
         #Setup logging
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -109,9 +109,10 @@ class Message:
     #Add additional arguments from project note
     def user_action(self, action):
         userAction = {
-            "help": "Please enter the following format: app-client.py <action>, where action is join or rules",
-            "rules": "\U0001F56D Choose the correct answer (A, B, C, or D) to the question on screen! The first to answer correctly gets 1 point. \U0001F56D",
-            "-h" : "Please enter the following format: app-client.py <host> <port> <username> to connect",
+            "connect" : "Welcome to the Networking Quiz Game",
+            "help" : "Please enter the following format: <action>, where action is join or rules",
+            "rules" : "\U0001F56D Enter join to start the quiz game. When the quiz starts, choose the correct answer (A, B, C, or D) to the question on screen! Answer correctly for 1 point. \U0001F56D",
+            "-h" : "Please enter the following format: app-client.py -i <host> -p <port> to connect",
             "-i" : "Needs to provide the server IP",
             "-p" : "Needs to provide the server port",
             "-n" : "Needs to provide the name of the DNS server (will have to run nslookup?)"
@@ -135,61 +136,130 @@ class Message:
                 "question" : "\nWhere in a router is the destination IP address looked up in a forwarding table to determine the appropriate output port to which the datagram should be directed?",
                 "options" : "\nA. At the output port leading to the next hop towards the destination  \nB. At the input port where a packet arrives  \nC. Within the switching fabric \nD. Within the routing processor",
                 "answer" : "D"
+            },
+            {
+                "question" : "\nWhat is the purpose of a manifest file in a streaming multimedia setting?",
+                "options" : "\nA. To let a client know where it can retrieve different video segments, encoded at different rates  \nB. To let a OTT (Over-the-top) video server know the video that the client wants to view  \nC. Allows a video service to log the video and the server from which a client streams a video  \nD. To allow a client to reserve bandwidth along a path from a server to that client, so the client can view a stream video without impairment.",
+                "answer" : "A"
+            },
+            {
+                "question" : "\nWhat approach is taken by a CDN to stream content to hundreds of thousands of simultaneous users?",
+                "options" : "\nA. Proactively push videos to a client device before they are requested, using machine learning to predict requested videos  \nB. Allow client devices to send requested content to each other, in order to offload the CDN infrastructure  \nC. Store/serve multiple copies of videos at multiple geographically distributed sites  \nD. Serve video from a single central “mega-server” with ultra-high-speed network connectivity, and high-speed storage",
+                "answer" : "C"
+            },
+            {
+                "question" : "\nSuppose a Web server has five ongoing connections that use TCP receiver port 80, and assume there are no other TCP connections (open or being opened or closed) at that server.  How many TCP sockets are in use at this server?",
+                "options" : "\nA. 6  \nB. 1  \nC. 5  \nD. 4",
+                "answer" : "A"
+            },
+            {
+                "question" : "\nWhat happens when a socket connect() procedure is called/invoked?",
+                "options": "\nA. This causes the client to reach out to a TCP server to establish a connection between that client and the server. If there is already one or more servers on this connection, this new server will also be added to this connection  \nB. This procedure creates a new socket at the client, and connects that socket to the specified server  \nC. This causes the server to reach out to a TCP client to establish a connection between that client and the server  \nD. Nothing at all",
+                "answer" : "B"
+            },
+            {
+                "question" : "\nWhere is transport-layer functionality primarily implemented?",
+                "options" : "\nA. Transport layer functions are implemented primarily at the routers and switches in the network  \nB. Transport layer functions are implemented primarily at the hosts at the “edge” of the network  \nC.Transport layer functions are implemented primarily in the cloud  \nD. Transport layer functions are implemented primarily at each end of a physical link connecting one host/router/switch to another one host/router/switch",
+                "answer" : "B"
+            },
+            {
+                "question" : "\nWhat is meant by transport-layer demultiplexing?",
+                "options" : "\nA. Taking data from one socket (one of possibly many sockets), encapsulating a data chuck with header information (thereby creating a transport layer segment) and eventually passing this segment to the network layer  \nB. Taking data from multiple sockets, all associated with the same destination IP address, adding destination port numbers to each piece of data, and then concatenating these to form a transport-layer segment, and eventually passing this segment to the network layer  \nC. Receiving a transport-layer segment from the network layer, extracting the payload (data) and delivering the data to the correct socket  \nD. Receiving a transport-layer segment from the network layer, extracting the payload, determining the destination IP address for the data, and then passing the segment and the IP address back down to the network layer",
+                "answer" : "C"
+            },
+            {
+                "question" : "\nWhat is meant by transport-layer multiplexing?",
+                "options" : "\nA. Taking data from one socket (one of possibly many sockets), encapsulating a data chuck with header information (thereby creating a transport layer segment) and eventually passing this segment to the network layer  \nB. Receiving a transport-layer segment from the network layer, extracting the payload (data) and delivering the data to the correct socket  \nC. Taking data from multiple sockets, all associated with the same destination IP address, adding destination port numbers to each piece of data, and then concatenating these to form a transport-layer segment, and eventually passing this segment to the network layer  \nD. Receiving a transport-layer segment from the network layer, extracting the payload, determining the destination IP address for the data, and then passing the segment and the IP address back down to the network layer",
+                "answer" : "A"
+            },
+            {
+                "question" : "\nWhat is the name of the security defense that provides confidentiality by encoding contents?",
+                "options" : "\nA. Access control  \nB. Digital signatures  \nC. Encryption  \nD. Firewall",
+                "answer" : "C"
+            },
+            {
+                "question" : "\nWhat is the name of the security defense that is used to detect tampering/changing of message contents, and to identify the originator of a message?",
+                "options" : "\nA. Firewall  \nB. Digital signatures  \nC. Authentication  \nD. Access control",
+                "answer" : "B"
+            },
+            {
+                "question" : "\nWhat is the name of the security defense that proves you are who you say you are?",
+                "options" : "\nA. Firewall  \nB. Encryption  \nC. Access control  \nD. Authentication",
+                "answer" : "D"
+            },
+            {
+                "question" : "\nLimiting use of resources or capabilities to given users?",
+                "options" : "\nA. Digital signatures  \nB. Authentication  \nC. Access control  \nD. Encryption",
+                "answer" : "C"
+            },
+            {
+                "question" : "\nWhat is the definition of a “good” path for a routing protocol?",
+                "options" : "\nA. A path that has a minimum number of hops  \nB. A low delay path  \nC. A path that has little or no congestion  \nD. Routing algorithms typically work with abstract link weights that could represent any of, or combinations of, all of the other answers",
+                "answer" : "D"
             }
         ]
         question = random.choice(questions)
         self.question = question
         return question
     
-    def gameplay(self, question, answer):        
-        client_answers = {}
-        # This will wait for 10 seconds while the clients respond and save a dictionary of their answers 
-        for user, _ in self.connections.items():
-            time.sleep(10)
-            if answer:
-                client_answers[user] = answer
-        # initial code for gameplay but will be better defined in Sprint 4
-        for user, answer in client_answers.items():
-            is_correct = answer == question["answer"]
+    def gameplay(self, question, answer):
+        # This take input from the clients responses for 10 questions and save a dictionary of their answers to compare if they are right or wrong
+        if self.num_ques < 10:       
+            is_correct = answer.upper() == question["answer"]
+
             if is_correct:
-                self.request = {
-                    "action": "answer",
+                content = {
                     "answer": question["answer"],
                     "result": "You answered correctly"
                 }
+                self.score += 1
             else:
-                self.request = {
-                    "action": "answer",
+                content = {
                     "answer": question["answer"],
                     "result": "You answered incorrectly"
                 }
-            self.create_response()
-        self.num_ques += 1
+            self.num_ques += 1
+            return content
+        else:
+            
+            content = {
+                "result" : f'User "{self.username}" is the winner with a score of "{self.score}"!'
+            }
+            return content
 
 
     def _create_response_json_content(self):
         action = self.request.get("action")
         #   Go into _user_action class with related actions 
-        if action.lower() == "help" or action.lower() == "rules" or action == "-h" or action == "-i" or action == "-p" or action == "-n":
+        if action.lower() == "help" or action.lower() == "rules" or action == "-h" or action == "-i" or action == "-p" or action == "-n" or action == "connect":
             #answer = request_search.get(action) or f'No match for "{action}".'
             answer = self.user_action(action)
             content = {"result": answer}
-        elif self.first_request == True:
+        elif self.username == None and self.first_con == False:
+            self.game_connections(action)
             content = {"result": f'Setting username to "{action}".'}
-            self.first_request = False
         #this will take in the join request to start the game and process any answers
         elif action.lower() == "join":
-            self._join_req = True
+            # Check if player wants multiple players or just them
+            self.request["action"] = "initial"
+            content = {
+                "result" : "To wait to start the quiz with other players, enter wait. To start the quiz, enter start."
+            }
+        elif action.lower() == "wait":
+            content = {"result" : "Waiting to start the quiz."}
+        elif action.lower() == "start" or action.lower() == "question":
+            self.quizStart = True
+            self.request["action"] = "question"
             question = self.quiz_questions()
             content = {
-                "action": "question",
                 "question": question["question"],
                 "options" : question["options"] 
              }
         #this will create the quiz question response content
-        elif action.lower() == "a" or action.lower() == "b" or action.lower() == "c" or action.lower() == "d":
-            self.gameplay(self.question, action)
-            question = self.quiz_questions()
+        elif action.lower() == "a" or action.lower() == "b" or action.lower() == "c" or action.lower() == "d" or action.lower() == "none":
+            self.request["action"] = "answer"
+            quiz_answer = self.gameplay(self.question, action)
+            content = quiz_answer
         else:
             self.logger.error(f'Error: invalid action "{action}" for {self.addr}.')
             content = {"result": f'Error: invalid action "{action}".'}
@@ -201,6 +271,12 @@ class Message:
         }
         return response
 
+    #logic to wait for addtional players or to play by yourself
+    def player_wait(self, username):
+        #send a response to the user asking if waiting or not 
+        
+        return "You are waiting "
+    
     def process_events(self, mask):
         if mask & selectors.EVENT_READ:
             self.read()
@@ -278,9 +354,9 @@ class Message:
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
             self.request = self._json_decode(data, encoding)
-            if self.first_request == True:
+            if self.first_con == True:
                     request = self.request.get("action")
-                    self.game_connections(request)
+                    self.first_con = False
             else:
                 request = self.request.get("action")
             print("received request", repr(request), "from", self.addr)
@@ -288,37 +364,21 @@ class Message:
         self._set_selector_events_mask("rw")
 
     def create_response(self):
-        response = self.request.get("action")
         prepared_response = self._create_response_json_content()
         message = self._create_message(**prepared_response)
+        response = self.request.get("action")
         print("sending response", repr(response), "to", self.username)
         self.response_created = True
         self._send_buffer += message
-        # For quiz question responses, use asyncio and a task list to send synchronized questions to the clients in self.connections
-        if response == "question":
-            async def send_to_clients(self, client_addr):
-                await self._set_selector_events_mask('w')  # Ensure write readiness before sending
-                self._send_buffer = message
-                await self._write(client_addr)
-
-            async def send_questions_synchronized():
-                questions = []
-                for client_addr in self.connections.values():
-                    questions.append(asyncio.create_task(send_to_clients(self, client_addr)))
-                await asyncio.gather(*questions)
-
-            asyncio.run(send_questions_synchronized())
-        
         self._set_selector_events_mask("rw")
         self.jsonheader = None
         self._jsonheader_len = None
 
     def game_connections(self, username):
-        if username not in self.connections:
-            self.username = username
-            self.connections[username] = self.addr
-            print(f"{username} connected from {self.addr}")  
-    
+        self.username = username
+        self.connections[self.username] = self.addr
+        self.logger.error(f"Peer started connection for {self.addr} with username {self.username}.")
+
     def del_connection(self, addr):
         for key, value in list(self.connections.items()):
             if value == addr:
