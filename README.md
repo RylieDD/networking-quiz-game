@@ -7,8 +7,8 @@ This is a basic networking quiz game implemented using Python and sockets.
 2. **Connect the clients:** Run the 'client.py' script on two or three different machines or terminals using syntax: python3 client.py -i <host> -p <port>
 3. **Set Username:** The game will prompt you to enter username with the phrase "Enter a username:"
 4. **Join or Rules:** The game will then prompt you to join the game or learn more from the rules with the phrase "Enter join for the quiz game or rules to see the quiz game rules:"
-5. **Wait for Others:** The game will then prompt you to wait for other players or start on your own with the phrase "To wait to start the quiz with other players, enter wait. To start the quiz, enter start."
-7. **Play the game:** If start is entered, the game begins! Players will be shown 10 questions about networking and whoever has the most points after 10 questions will win!
+5. **Wait for Others:** The game will then prompt you to start with the phrase "To start the quiz, enter start. If multiple players are connected, the game won't begin until everyone's started." The server will wait for all players to send "start" before starting the game.
+7. **Play the game:** If start is entered, the game begins! Players will be shown 10 questions about networking and whoever has the most points after 10 questions will win! If the players have the same score, it's a draw!
 
 ## Technologies Used
 * Python
@@ -31,13 +31,12 @@ client_addr
 asyncio.gather. 
 
 ## Game Play
-The game presents the players with 10 questions after the start prompt is entered. A user enters their answer, it is sent to the server to check if it is correct or not, and the server returns the answer to the client so the results can be shown in the terminal and the user's score can be updated. 
+The game presents the players with 10 questions sent one at a time after the start prompt is entered by all players. After a user enters their answer, it is sent to the server to check if it is correct or not, and the server returns the answer to the client so the results can be shown in the terminal and the user's score can be updated. 
 
 ## Statement of Work
 https://github.com/RylieDD/networking-quiz-game/blob/main/SOW.md
 
 ## Additional Resources
 * [socket Python Documentation](https://docs.python.org/3/library/socket.html)
-* [tkinter Python Documentation](https://docs.python.org/3/library/tkinter.html)
 * [ssl Python Documentation](https://docs.python.org/3/library/ssl.html)
 * [Sockets Tutorial](https://realpython.com/python-sockets/)
