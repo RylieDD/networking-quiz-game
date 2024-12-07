@@ -1,63 +1,36 @@
-#!/usr/bin/env python3
-
-import struct
+import asyncio
 import sys
-import socket
-import selectors
-import traceback
+from libclient import AsyncMessage
 
-import libclient
+async def main(host, port, loop):
+    reader, writer = await asyncio.open_connection(host, port)
+    message = AsyncMessage(reader, writer, loop)
 
-sel = selectors.DefaultSelector()
+    #Start receiving and processing messages
+    loop.create_task(message.receive_messages())
+    #await asyncio.sleep(0.1)
+    loop.create_task(message.process_messages())
+    #await message.process_messages()
 
+    #Send initial "connect" action
+    await message.send_message({"action": "connect"})
+    print("Sent 'connect' to the server.")
 
-def create_request(action):
-    if action != "exit":
-        return dict(
-            type="text/json",
-            encoding="utf-8",
-            content=dict(action=action),
-        )
-    else:
+    #Wait for the response from server
+    while not message.message_queue:
+        await asyncio.sleep(0.1)  # Wait for the server response
+    connect_response = message.message_queue.popleft()
+    if connect_response.get("result") == "Connected to the quiz game.":
+        print(connect_response["result"])
+
+    await message.handle_user_inputs()
+
+if __name__ == "__main__":
+
+    if len(sys.argv) != 5:
+        print("Usage: python client.py -i <host> -p <port>")
         sys.exit(1)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main(sys.argv[2], int(sys.argv[4]), loop))
 
 
-def start_connection(host, port, request):
-    addr = (host, port)
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.setblocking(False)
-    sock.connect_ex(addr)
-    events = selectors.EVENT_READ | selectors.EVENT_WRITE
-    message = libclient.Message(sel, sock, addr, request)
-    sel.register(sock, events, data=message)
-
-# Remove the username addition from the first connection 
-if len(sys.argv) != 5:
-    print("usage:", sys.argv[0], "-i <host> -p <port>")
-    sys.exit(1)
-
-host, port = sys.argv[2], int(sys.argv[4])
-action = "connect"
-request = create_request(action)
-start_connection(host, port, request)
-
-try:
-    while True:
-        events = sel.select(timeout=1)
-        for key, mask in events:
-            message = key.data
-            try:
-                message.process_events(mask)
-            except Exception:
-                print(
-                    "main: error: exception for",
-                    f"{message.addr}:\n{traceback.format_exc()}",
-                )
-                message.close()
-        # Check for a socket being monitored to continue.
-        if not sel.get_map():
-            break
-except KeyboardInterrupt:
-    print("caught keyboard interrupt, exiting")
-finally:
-    sel.close()
