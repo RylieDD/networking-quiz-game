@@ -167,9 +167,9 @@ The goal of this project is to create a quiz show capability using knowledge gai
    c) Provide informative error messages to the user. (1 hour to complete)
 * Sprint 5: Integration Testing 
 
-   a) Test the entire game system to ensure that all components work together as expected. (4 hours to complete)
+   a) Test the entire game system to ensure that all components work together as expected. (6 hours to complete)
    
-   b) Simulate different scenarios and test edge cases to identify potential bugs or issues. (4 hours to complete)
+   b) Simulate different scenarios and test edge cases to identify potential bugs or issues. (6 hours to complete)
 * Sprint 5: Security/Risk Evaluation
 
    a) Write a single paragraph or list describing what security issues your game may have and how they can be addressed. (1 hour to complete)
@@ -187,9 +187,8 @@ The goal of this project is to create a quiz show capability using knowledge gai
 * Windows 11
 * Linux
 * Python socket library
-* Python threading library
+* Python asyncio library
 * Python ssl library
-* Python tkinter library
 ### Assumptions:
 It is assumed that the CSU CS Lab computers will be available to run the Python scripts. It is also assumed that players have the resources to/understanding of how to run Python scripts.
 ### Roles and Responsibilities:
