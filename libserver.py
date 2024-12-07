@@ -6,11 +6,11 @@ import io
 import struct
 import time
 import logging
-
+import asyncio
 
 
 class Message:
-    def __init__(self, selector, sock, addr):
+    def __init__(self, selector, sock, addr, handler = None):
         self.selector = selector
         self.sock = sock
         self.addr = addr
@@ -27,6 +27,9 @@ class Message:
         self.quizStart = False
         self.first_con = True
         self.score = 0
+        self.action = None
+        self.answer = None
+        self.handler = handler
         
         #Setup logging
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -35,7 +38,6 @@ class Message:
         handler = logging.FileHandler('Server_Error.log')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
-
     def _set_selector_events_mask(self, mode):
         """Set selector to listen for events: mode is 'r', 'w', or 'rw'."""
         if mode == "r":
@@ -48,7 +50,6 @@ class Message:
             self.logger.error(f"Invalid events mask mode {repr(mode)} for {self.addr}.")
             raise ValueError(f"Invalid events mask mode {repr(mode)}.")
         self.selector.modify(self.sock, events, data=self)
-
     def _read(self):
         try:
             # Should be ready to read
@@ -63,26 +64,17 @@ class Message:
             else:
                 self.logger.error(f"Error: Peer closed connection for {self.addr}.")
                 raise RuntimeError("Peer closed.")
-
     def _write(self):
         if self._send_buffer:
             try:
-                # Should be ready to write
                 sent = self.sock.send(self._send_buffer)
             except BlockingIOError:
-                # Resource temporarily unavailable (errno EWOULDBLOCK)
                 pass
             else:
                 self._send_buffer = self._send_buffer[sent:]
-
-                # Close when the buffer is drained. The response has been sent.
-                # if sent and not self._send_buffer:
-                    # self.close()
         self._send_buffer = b""
-
     def _json_encode(self, obj, encoding):
         return json.dumps(obj, ensure_ascii=False).encode(encoding)
-
     def _json_decode(self, json_bytes, encoding):
         tiow = io.TextIOWrapper(
             io.BytesIO(json_bytes), encoding=encoding, newline=""
@@ -90,7 +82,6 @@ class Message:
         obj = json.load(tiow)
         tiow.close()
         return obj
-
     def _create_message(
         self, *, content_bytes, content_type, content_encoding
     ):
@@ -104,21 +95,16 @@ class Message:
         message_hdr = struct.pack(">H", len(jsonheader_bytes))
         message = message_hdr + jsonheader_bytes + content_bytes
         return message
-
     #Add additional arguments from project note
     def user_action(self, action):
         userAction = {
-            "connect" : "Welcome to the Networking Quiz Game",
             "help" : "Please enter the following format: <action>, where action is join or rules",
             "rules" : "\U0001F56D Enter join to start the quiz game. When the quiz starts, choose the correct answer (A, B, C, or D) to the question on screen! Answer correctly for 1 point. \U0001F56D",
-            "-h" : "Please enter the following format: app-client.py -i <host> -p <port> to connect",
-            "-i" : "Needs to provide the server IP",
-            "-p" : "Needs to provide the server port",
+            "-h" : "Please enter the following format: python client.py -i <host> -p <port> to connect",
             "-n" : "Needs to provide the name of the DNS server (will have to run nslookup?)"
         }
         response = userAction.get(action)
-        return response
-     
+        return response  
     def quiz_questions(self):
         questions = [
             {
@@ -200,102 +186,76 @@ class Message:
         question = random.choice(questions)
         self.question = question
         return question
-    
-    def gameplay(self, question, answer):
-        # This take input from the clients responses for 10 questions and save a dictionary of their answers to compare if they are right or wrong
-        if self.num_ques < 10:       
-            is_correct = answer.upper() == question["answer"]
-
-            if is_correct:
-                content = {
-                    "answer": question["answer"],
-                    "result": "You answered correctly"
-                }
-                self.score += 1
-            else:
-                content = {
-                    "answer": question["answer"],
-                    "result": "You answered incorrectly"
-                }
-            self.num_ques += 1
-            return content
-        else:
-            
-            content = {
-                "result" : f'User "{self.username}" is the winner with a score of "{self.score}"!'
-            }
-            return content
-
-
     def _create_response_json_content(self):
         action = self.request.get("action")
-        #   Go into _user_action class with related actions 
-        if action.lower() == "help" or action.lower() == "rules" or action == "-h" or action == "-i" or action == "-p" or action == "-n" or action == "connect":
-            #answer = request_search.get(action) or f'No match for "{action}".'
-            answer = self.user_action(action)
-            content = {"result": answer}
-        elif self.username == None and self.first_con == False:
-            self.game_connections(action)
-            content = {"result": f'Setting username to "{action}".'}
-        #this will take in the join request to start the game and process any answers
+        if action.lower() == "connect":
+            self.first_con = False
+            response = {"result": "Connected to the quiz game."}
+        elif not self.username:
+        # Set the username if not already set
+            self.username = action.strip()
+            if self.username:
+                response = {"action": "username", "result": "Enter join for the quiz game or rules to see the quiz game rules:"}
+            else:
+                response = {"result": "Enter a valid username."}
+        elif action.lower() in ["help", "rules", "-h", "-n"]:
+            response = {"action": action, "result": self.user_action(action)}
         elif action.lower() == "join":
-            # Check if player wants multiple players or just them
-            self.request["action"] = "initial"
-            content = {
-                "result" : "To wait to start the quiz with other players, enter wait. To start the quiz, enter start."
+            response = {
+                "action": "info", "result": "To start the quiz, enter start. If multiple players are connected, the game won't begin until everyone's started.", "input": "Enter start:"
             }
-        elif action.lower() == "wait":
-            content = {"result" : "Waiting to start the quiz."}
-        elif action.lower() == "start" or action.lower() == "question":
-            self.quizStart = True
-            self.request["action"] = "question"
-            question = self.quiz_questions()
-            content = {
-                "question": question["question"],
-                "options" : question["options"] 
-             }
-        #this will create the quiz question response content
-        elif action.lower() == "a" or action.lower() == "b" or action.lower() == "c" or action.lower() == "d" or action.lower() == "none":
+        elif action.lower() == "start":
+            self.request["action"] = "start"
+            self.action = "start"
+            print(f"Deferring 'start' to server.py for {self.addr}")
+            return None
+        elif action.lower() == "answer":
             self.request["action"] = "answer"
-            quiz_answer = self.gameplay(self.question, action)
-            content = quiz_answer
+            self.action = "answer"
+            self.answer = self.request.get("choice")
+            print(f"Deferring 'answer' to server.py for {self.addr}")
+            return None
         else:
             self.logger.error(f'Error: invalid action "{action}" for {self.addr}.')
-            content = {"result": f'Error: invalid action "{action}".'}
-        content_encoding = "utf-8"
-        response = {
-            "content_bytes": self._json_encode(content, content_encoding),
-            "content_type": "text/json",
-            "content_encoding": content_encoding
-        }
-        return response
+            response = {"result": f'Error: invalid action "{action}".'}
 
-    #logic to wait for addtional players or to play by yourself
-    def player_wait(self, username):
-        #send a response to the user asking if waiting or not 
-        
-        return "You are waiting "
-    
-    def process_events(self, mask):
+        return {
+            "content_bytes": self._json_encode(response, "utf-8"),
+            "content_type": "text/json",
+            "content_encoding": "utf-8",
+        }
+    async def send_response(self, content):
+        response = self._create_message(
+            content_bytes=self._json_encode(content, "utf-8"),
+            content_type="text/json",
+            content_encoding="utf-8",
+        )
+        self._send_buffer += response
+        self._set_selector_events_mask("rw")  # Enable writing
+    async def process_events(self, mask):
         if mask & selectors.EVENT_READ:
             self.read()
         if mask & selectors.EVENT_WRITE:
-            self.write()
-
+            if not self.response_created:
+                # Check if the action is meant to be handled by the server
+                if self.action in ["start", "answer"]:
+                    if self.handler:  # Ensure the handler is present
+                        await self.handler(self.addr, self.action, self.answer)
+                    else:
+                        print(f"Handler not set for {self.addr}")
+                    self.action = None
+                else:
+                    self.write()
     def read(self):
         self._read()
-
         if self._jsonheader_len is None:
             self.process_protoheader()
-
         if self._jsonheader_len is not None:
             if self.jsonheader is None:
                 self.process_jsonheader()
-
         if self.jsonheader:
             if self.request is None:
                 self.process_request()
-
     def write(self):
         if self.request:
             if not self.response_created:
@@ -303,14 +263,12 @@ class Message:
                 self.response_created = False
         self._write()
         self.request = None
-
     def close(self):
         self.del_connection(self.addr)
         try:
             self.selector.unregister(self.sock)
         except Exception as e:
             self.logger.error(f"error: selector.unregister() exception for {self.addr}: {repr(e)}.")
-
         try:
             self.sock.close()
         except OSError as e:
@@ -318,7 +276,6 @@ class Message:
         finally:
             # Delete reference to socket object for garbage collection
             self.sock = None
-
     def process_protoheader(self):
         hdrlen = 2
         if len(self._recv_buffer) >= hdrlen:
@@ -326,7 +283,6 @@ class Message:
                 ">H", self._recv_buffer[:hdrlen]
             )[0]
             self._recv_buffer = self._recv_buffer[hdrlen:]
-
     def process_jsonheader(self):
         hdrlen = self._jsonheader_len
         if len(self._recv_buffer) >= hdrlen:
@@ -343,12 +299,10 @@ class Message:
                 if reqhdr not in self.jsonheader:
                     self.logger.error(f'Missing required header "{reqhdr}" for {self.addr}.')
                     raise ValueError(f'Missing required header "{reqhdr}".')
-
     def process_request(self):
         content_len = self.jsonheader["content-length"]
         if len(self._recv_buffer) < content_len:
             return
-        # self._recv_buffer = self._recv_buffer[:content_len]
         data = self._recv_buffer[:content_len]
         if self.jsonheader["content-type"] == "text/json":
             encoding = self.jsonheader["content-encoding"]
@@ -361,23 +315,21 @@ class Message:
             print("received request", repr(request), "from", self.addr)
         self._recv_buffer = b""
         self._set_selector_events_mask("rw")
-
     def create_response(self):
         prepared_response = self._create_response_json_content()
-        message = self._create_message(**prepared_response)
-        response = self.request.get("action")
-        print("sending response", repr(response), "to", self.username)
-        self.response_created = True
-        self._send_buffer += message
-        self._set_selector_events_mask("rw")
-        self.jsonheader = None
-        self._jsonheader_len = None
-
+        if prepared_response:
+            message = self._create_message(**prepared_response)
+            response = self.request.get("action")
+            print(f"sending response {repr(response)} to {self.username}")
+            self.response_created = True
+            self._send_buffer += message
+            self._set_selector_events_mask("rw")
+            self.jsonheader = None
+            self._jsonheader_len = None
     def game_connections(self, username):
         self.username = username
         self.connections[self.username] = self.addr
-        self.logger.error(f"Peer started connection for {self.addr} with username {self.username}.")
-
+        self.logger.error(f"Peer started connection for {self.addr} with username {self.username}.")   
     def del_connection(self, addr):
         for key, value in list(self.connections.items()):
             if value == addr:
