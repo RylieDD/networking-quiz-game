@@ -33,6 +33,9 @@ asyncio.gather.
 ## Game Play
 The game presents the players with 10 questions sent one at a time after the start prompt is entered by all players. After a user enters their answer, it is sent to the server to check if it is correct or not, and the server returns the answer to the client so the results can be shown in the terminal and the user's score can be updated. 
 
+## Security/Risk Evaluation
+
+
 ## Statement of Work
 https://github.com/RylieDD/networking-quiz-game/blob/main/SOW.md
 
