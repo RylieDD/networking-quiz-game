@@ -1,29 +1,39 @@
-
 #!/usr/bin/env python3
 
 import asyncio
 import sys
 import socket
 import selectors
+import time
 import traceback
-
 import libserver
 
 sel = selectors.DefaultSelector()
-connections = []
+connections = {}
+messages = {}
+quiz_state = {
+    "current_question": None,
+    "num_questions_asked": 0,
+    "max_questions": 10,
+    "scores": {}
+}
+ready_event = asyncio.Event()
 
 def accept_wrapper(sock):
     conn, addr = sock.accept()  # Should be ready to read
     conn.setblocking(False)
-    message = libserver.Message(sel, conn, addr)
-    connections.append(addr)
-    sel.register(conn, selectors.EVENT_READ, data=message)
+    message = libserver.Message(sel, conn, addr, handler=handle_action)
+    if len(connections) <= 3:
+        connections[addr] = {'username': None, 'started': False, 'connected': False, 'responded': False}
+        messages[addr] = {'message': message, 'mask': None}
+        sel.register(conn, selectors.EVENT_READ, data=message)
+    elif len(connections > 3):
+        print("Too many players for the quiz game, please try again later.")
 
 if len(sys.argv) != 3:
     print (len(sys.argv))
     print("usage:", sys.argv[0], "-p <port>")
     sys.exit(1)
-
 host, port = "0.0.0.0", int(sys.argv[2])
 lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # Avoid bind() exception: OSError: [Errno 48] Address already in use
@@ -34,69 +44,191 @@ lsock.listen()
 lsock.setblocking(False)
 sel.register(lsock, selectors.EVENT_READ, data=None)
 
-try:
-    while True:
-        events = sel.select(timeout=None)
-        for key, mask in events:
-            if key.data is None:
-                accept_wrapper(key.fileobj)
-            else:
-                message = key.data
-                try:
-                    message.process_events(mask)
-                except Exception:
-                    print(
-                        "main: error: exception for",
-                        f"{message.addr}:\n{traceback.format_exc()}",
-                    )
-                    message.close()
-except KeyboardInterrupt:
-    print("caught keyboard interrupt, exiting")
-finally:
-    sel.close()
+async def handle_action(addr, action, answer=None):
+    print(f"Received action '{action}' from {addr}")
+    if action == "connect":
+        if connections[addr]["connected"]:
+            print(f"Client {addr} already connected. Ignoring duplicate 'connect'.")
+            return
 
+        connections[addr]["connected"] = True
+        message = messages[addr]["message"]
+        await message.send_response(
+            {"result": "Connected to the quiz game."}
+        )
+        return
+    if action == "start":
+        print(f"Handling 'start' from {addr}")
+        connections[addr]["started"] = True
 
+        if len(connections) == 1 or all(conn["started"] for conn in connections.values()):
+            ready_event.set()
+            print("All clients are ready, starting the quiz.")
+            tasks = [
+                messages[client_addr]["message"].send_response(
+                    {
+                        "action": "start",
+                        "result": "Quiz is starting... waiting for questions.",
+                    }
+                )
+                for client_addr in connections
+            ]
+            await asyncio.gather(*tasks)
+            print("Initial quiz message sent to all clients.")
+            time.sleep(0.5)
+            await broadcast_question()
+        else:
+            print(f"Client {addr} waiting for others.")
+            message = messages[addr]["message"]
+            await message.send_response(
+                {
+                "action": "info",
+                "result": "Received start request. Waiting for other players...",
+                }
+            )
+    elif action.lower() == "answer":
+        print(f"Received answer '{answer}' from {addr}.")
+        await handle_answer(addr, answer)
+    else:
+        message = messages[addr]["message"]
+        await message.send_response({"result": f'Error: invalid action "{action}".'})
 
-'''
-async def process_events(message, mask):
-    if message.process_events(mask) is not None:
-        await message.process_events(mask)
-        data = message.request
-        print("Server data: ", data)
-        if data == "start":
-            await question_send(message, connections)
+async def broadcast_question():
+    print("Broadcasting question.")
+    if quiz_state["num_questions_asked"] >= quiz_state["max_questions"]:
+        print("Max questions reached. Ending quiz.")
+        await end_quiz()
+        return
 
-async def question_send(message, clients):
-    tasks = [asyncio.create_task(message.create_response("question")) for addr in clients]
+    if not quiz_state["current_question"] or quiz_state["num_questions_asked"] == 0:
+        print("Generating new quiz question.")
+        question = libserver.Message.quiz_questions(libserver.Message)
+        quiz_state["current_question"] = question
+        quiz_state["num_questions_asked"] += 1
+    else: 
+        question = quiz_state["current_question"]
+
+    tasks = []
+    for addr in connections:
+        message = messages[addr]["message"]
+        content = {
+            "action": "question",
+            "result": "Here is your question:",
+            "question": question["question"],
+            "options": question["options"],
+            "input": "Answer the question by entering a, b, c, or d: "
+        }
+        print(f"Sending question to {addr}: {content}")
+        tasks.append(message.send_response(content))
+        message.jsonheader = None
+        message._jsonheader_len = None
+    if tasks:
+        time.sleep(0.1)
+        await asyncio.gather(*tasks)
+        print("Question sent to all clients.")
+
+async def handle_answer(addr, answer):
+    if not quiz_state["current_question"]:
+        return 
+    correct = (
+        answer.upper() == quiz_state["current_question"]["answer"]
+    )
+    if correct:
+        quiz_state["scores"][addr] = quiz_state["scores"].get(addr, 0) + 1
+        response = {"result": "Correct answer!"}
+    else:
+        response = {
+            "result": f"Wrong answer!"
+        }
+    connections[addr]["responded"] = True
+    message = messages[addr]["message"]
+    await message.send_response(response)
+
+    active_clients = [addr for addr in connections if "responded" in connections[addr]]
+    if all(connections[client]["responded"] for client in active_clients):
+        reset_responses()
+        print("Connections: ", connections)
+        print("Quiz State: ", quiz_state)
+        if quiz_state["num_questions_asked"] < quiz_state["max_questions"]:
+            await broadcast_question()
+        else:
+            await end_quiz()
+
+def reset_responses():
+    for conn in connections.values():
+        conn["responded"] = False
+
+async def end_quiz():
+    results = []
+    for addr, score in quiz_state["scores"].items():
+        username = connections[addr]["username"]
+        results.append(f"Player {username} scored {score} points.")
+
+    tasks = []
+    for addr in connections:
+        message = messages[addr]["message"]
+        tasks.append(
+            message.send_response({"action": "end", "result": "Quiz finished!", "scores": results, "input": "Enter start to restart the game or exit to exit the quiz game:"})
+        )
+    quiz_state = {
+    "current_question": None,
+    "num_questions_asked": 0,
+    "max_questions": 10,
+    "scores": {}
+    } 
     await asyncio.gather(*tasks)
 
-#async def event_loop():
-while True:
-    events = sel.select(timeout=None)
-    tasks = []
-    for key, mask in events:
-        if key.data is None:
-            accept_wrapper(key.fileobj)
-        else:
-            message = key.data
-            #tasks.append(asyncio.create_task(process_events(message, mask)))
-    # Wait for all tasks to complete concurrently
-    #await asyncio.gather(*tasks)
-    # Handle errors after gathering
-    #for task in tasks:
-    #    try:
-     #       await task
-        except Exception:
-            print(
-                "main: error: exception for",
-                f"{message.addr}:\n{traceback.format_exc()}",
-            )
-            message.close()
+def handle_disconnection(addr):
+    # Remove client from connections and messages
+    if addr in connections:
+        username = connections[addr].get("username", "Unknown")
+        print(f"Client {username} at {addr} disconnected.")
+        del connections[addr]
+    if addr in messages:
+        del messages[addr]
 
-try:
-    asyncio.run(event_loop())
-except KeyboardInterrupt:
-    print("caught keyboard interrupt, exiting")
-finally:
-    sel.close()
-    '''
+async def main():
+    try:
+        while True:
+            events = sel.select(timeout=None)
+            for key, mask in events:
+                if key.data is None:
+                    accept_wrapper(key.fileobj)
+                else:
+                    message = key.data
+                    addr = message.addr
+                    try:
+                        if addr in connections:
+                            if connections[addr]['username'] is None:
+                                connections[addr]['username'] = message.username
+                            if len(connections) > 1:
+                                if all(conn['started'] for conn in connections.values()):
+                                    messages[addr]['message'] = message
+                                    messages[addr]['mask'] = mask
+                                    if all(conn_data["started"] for conn_data in connections.values()):
+                                        #ready_event.set()
+                                        await message.process_events(mask)
+                                elif all(conn['responded'] for conn in connections.values()):
+                                    messages[addr]['message'] = message
+                                    messages[addr]['mask'] = mask
+                                    if all(conn_data["responded"] for conn_data in connections.values()):
+                                        await message.process_events(mask)
+                                    #connections[addr]['started'] = True
+                                else:
+                                    await message.process_events(mask)
+                            else:
+                                await message.process_events(mask)
+                        else:
+                            print(f"Client {addr} not found in connections.")
+                    except Exception as e:
+                        print(f"main: error: exception for {addr}: {traceback.format_exc()}")
+                        handle_disconnection(addr)
+                        message.close()
+    except KeyboardInterrupt:
+        print("caught keyboard interrupt, exiting")
+    finally:
+        sel.close()
+        
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
