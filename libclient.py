@@ -3,6 +3,7 @@ import json
 import struct
 from collections import deque
 import sys
+import logging
 
 class AsyncMessage:
     def __init__(self, reader, writer, loop):
@@ -21,6 +22,14 @@ class AsyncMessage:
         self.question_num = 0
         self.wait = False
 
+        #Setup logging
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.ERROR)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        handler = logging.FileHandler('Client_Error.log')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+
 
     async def send_message(self, content):
         try:
@@ -36,43 +45,62 @@ class AsyncMessage:
             message = header_len + header + encoded_content
             self.writer.write(message)
             await self.writer.drain()
+        except (asyncio.CancelledError, ConnectionResetError, BrokenPipeError) as e:
+            self.logger.error(f"Connection error while sending message: {e} for {self.addr}.")
+            print(f"Connection error while sending message: {e}")
+            return
         except Exception as e:
+            self.logger.error(f"Error sending message: {e} for {self.addr}.")
             print(f"Error sending message: {e}")
 
     async def receive_messages(self):
-        while True:
-            try:
-                # Read header length
-                header_len = await self.reader.readexactly(2)
-                header_len = struct.unpack(">H", header_len)[0]
+        try: 
+            while True:
+                try:
+                    # Read header length
+                    header_len = await self.reader.readexactly(2)
+                    header_len = struct.unpack(">H", header_len)[0]
 
-                # Read header
-                header = await self.reader.readexactly(header_len)
-                jsonheader = self._json_decode(header, "utf-8")
+                    # Read header
+                    header = await self.reader.readexactly(header_len)
+                    jsonheader = self._json_decode(header, "utf-8")
 
-                # Read content
-                content_len = jsonheader["content-length"]
-                content = await self.reader.readexactly(content_len)
-                decoded_message = self._json_decode(content, "utf-8")
-                self.message_queue.append(decoded_message)
-            except asyncio.IncompleteReadError:
-                print("Connection closed by server.")
-                break
-            except Exception as e:
-                print(f"Error receiving message: {e}")
-                await asyncio.sleep(0.1)
+                    # Read content
+                    content_len = jsonheader["content-length"]
+                    content = await self.reader.readexactly(content_len)
+                    decoded_message = self._json_decode(content, "utf-8")
+                    self.message_queue.append(decoded_message)
+                except asyncio.IncompleteReadError:
+                    self.logger.error(f"Connection closed by server. for {self.addr}.")
+                    print("Connection closed by server.")
+                    break
+                except ConnectionResetError:
+                    self.logger.error(f"Server connection reset. Exiting message receiving. for {self.addr}.")
+                    print("Server connection reset. Exiting message receiving.")
+                    break
+                except Exception as e:
+                    self.logger.error(f"Error receiving message: {e} for {self.addr}.")
+                    print(f"Error receiving message: {e}")
+                    await asyncio.sleep(0.1)
+        except KeyboardInterrupt:
+            self.logger.error(f"KeyboardInterrupt detected during message reception. Exiting. for {self.addr}.")
+            print("KeyboardInterrupt detected during message reception. Exiting.")
+            
 
     async def process_messages(self):
-        while True:
-            if self.message_queue:
-                try:
-                    message = self.message_queue.popleft()
-                    await self.process_response(message)
-                except Exception as e:
-                    print(f"Error processing message: {e}")
-                #finally: 
-                 #   self.message_event.set()
-            await asyncio.sleep(0.1)
+        try: 
+            while True:
+                if self.message_queue:
+                    try:
+                        message = self.message_queue.popleft()
+                        await self.process_response(message)
+                    except Exception as e:
+                        self.logger.error(f"Error processing message: {e} for {self.addr}.")
+                        print(f"Error processing message: {e}")
+                await asyncio.sleep(0.1)
+        except KeyboardInterrupt:
+            self.logger.error(f"KeyboardInterrupt detected during message processing. Exiting. for {self.addr}.")
+            print("\nKeyboardInterrupt detected during message processing. Exiting.")
 
     async def process_response(self, response):
         try:
@@ -97,19 +125,19 @@ class AsyncMessage:
             elif action.lower() == "question":
                 self.waiting_for_question = False
                 self.game_state(response)
-                #print(response["input"])
+                print(response["input"])
             elif action.lower() == "answer":
                 self.game_state(response)
                 #print(response["input"])
             elif action.lower() == "end":
                 self.quizEnd = True
                 print(response["result"])
-                print(response["scores"])
                 print(response["input"])
             else:
                 print(f"Unknown action: {action}")
             
         except Exception as e:
+            self.logger.error(f"Error processing response: {e} for {self.addr}.")
             print(f"Error processing response: {e}")
 
     async def handle_user_inputs(self):
@@ -137,7 +165,6 @@ class AsyncMessage:
                         await asyncio.sleep(1)
                     elif self.quizStart:
                         user_input = await self.loop.run_in_executor(None, input, "")
-                        print("Sending answer to server:", user_input)
                         await self.send_message({"action": "answer", "choice": user_input})  
                     elif self.quizEnd:
                         user_input = await self.loop.run_in_executor(None, input, "")      
@@ -146,11 +173,14 @@ class AsyncMessage:
                                 self.question_num = 0
                                 await self.send_message({"action": user_input})
                         elif user_input == "exit":
+                            await self.send_message({"action": user_input})
                             sys.exit(1)
                 except KeyboardInterrupt:
+                    self.logger.error(f"Exiting input loop. for {self.addr}.")
                     print("Exiting input loop.")
                 except Exception as e:
-                    print(f"Inner Loop - Error handling user input: {e}")
+                    self.logger.error(f"Error handling user input: {e} {self.addr}.")
+                    print(f"Error handling user input: {e}")
                     break
     
     def game_state(self, content):
@@ -162,9 +192,6 @@ class AsyncMessage:
         elif content.get("action") == "answer":
             result = content.get("result")
             print(result)
-            if result == "Correct answer!":
-                self.score += 1
-            print(f"Current score: {self.score}")
 
     def _json_encode(self, obj, encoding):
         return json.dumps(obj, ensure_ascii=False).encode(encoding)
