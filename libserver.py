@@ -4,9 +4,7 @@ import selectors
 import json
 import io
 import struct
-import time
 import logging
-import asyncio
 
 
 class Message:
@@ -52,10 +50,8 @@ class Message:
         self.selector.modify(self.sock, events, data=self)
     def _read(self):
         try:
-            # Should be ready to read
             data = self.sock.recv(4096)
         except BlockingIOError:
-            # Resource temporarily unavailable (errno EWOULDBLOCK)
             pass
         else:
             if data:
@@ -64,6 +60,7 @@ class Message:
             else:
                 self.logger.error(f"Error: Peer closed connection for {self.addr}.")
                 raise RuntimeError("Peer closed.")
+                self.close()
     def _write(self):
         if self._send_buffer:
             try:
@@ -95,7 +92,6 @@ class Message:
         message_hdr = struct.pack(">H", len(jsonheader_bytes))
         message = message_hdr + jsonheader_bytes + content_bytes
         return message
-    #Add additional arguments from project note
     def user_action(self, action):
         userAction = {
             "help" : "Please enter the following format: <action>, where action is join or rules",
@@ -192,7 +188,6 @@ class Message:
             self.first_con = False
             response = {"result": "Connected to the quiz game."}
         elif not self.username:
-        # Set the username if not already set
             self.username = action.strip()
             if self.username:
                 response = {"action": "username", "result": "Enter join for the quiz game or rules to see the quiz game rules:"}
@@ -215,6 +210,8 @@ class Message:
             self.answer = self.request.get("choice")
             print(f"Deferring 'answer' to server.py for {self.addr}")
             return None
+        elif action.lower() == exit:
+            self.close()
         else:
             self.logger.error(f'Error: invalid action "{action}" for {self.addr}.')
             response = {"result": f'Error: invalid action "{action}".'}
@@ -231,15 +228,14 @@ class Message:
             content_encoding="utf-8",
         )
         self._send_buffer += response
-        self._set_selector_events_mask("rw")  # Enable writing
+        self._set_selector_events_mask("rw")
     async def process_events(self, mask):
         if mask & selectors.EVENT_READ:
             self.read()
         if mask & selectors.EVENT_WRITE:
             if not self.response_created:
-                # Check if the action is meant to be handled by the server
                 if self.action in ["start", "answer"]:
-                    if self.handler:  # Ensure the handler is present
+                    if self.handler:
                         await self.handler(self.addr, self.action, self.answer)
                     else:
                         print(f"Handler not set for {self.addr}")
