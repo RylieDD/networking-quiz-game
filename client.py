@@ -1,35 +1,46 @@
 import asyncio
 import sys
-from libclient import AsyncMessage
+from libclient import Message
+import ssl
+
+#Application of TLS using the provided cert.pem
+def create_tls_context():
+    context = ssl.create_default_context(ssl.Purpose.SERVER_AUTH)
+    context.load_verify_locations("cert.pem") 
+    context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 
+    return context
+
 
 async def main(host, port, loop):
+    tls_context = create_tls_context()
     writer = None
     try:
-        reader, writer = await asyncio.open_connection(host, port)
-        message = AsyncMessage(reader, writer, loop)
+        reader, writer = await asyncio.open_connection(host, port, ssl=tls_context)
+        message = Message(reader, writer, loop)
 
-        #Start receiving and processing messages
+        #Handles the receiving and processing messages
         loop.create_task(message.receive_messages())
         loop.create_task(message.process_messages())
 
-        #Send initial "connect" action
+        #Sends the initial "connect" action
         await message.send_message({"action": "connect"})
         print("Sent 'connect' to the server.")
 
-        #Wait for the response from server
+        #Waits for the response from server
         while not message.message_queue:
             await asyncio.sleep(0.1)
         connect_response = message.message_queue.popleft()
         if connect_response.get("result") == "Connected to the quiz game.":
             print(connect_response["result"])
-
+        
+        #Handles the processing of user inputs
         await message.handle_user_inputs()
     except ConnectionResetError:
         print("The server disconnected unexpectedly. Exiting.")
         for task in asyncio.Task.all_tasks(loop):
             task.cancel()
     except KeyboardInterrupt:
-        print("\nKeyboardInterrupt detected. Shutting down client...")
+        print("KeyboardInterrupt detected. Shutting down client...")
         for task in asyncio.Task.all_tasks(loop):
             task.cancel()
     except Exception as e:
@@ -47,7 +58,7 @@ if __name__ == "__main__":
     try:
         loop.run_until_complete(main(sys.argv[2], int(sys.argv[4]), loop))
     except KeyboardInterrupt:
-        print("\nKeyboardInterrupt detected in the main loop. Exiting.")
+        print("KeyboardInterrupt detected in the main loop. Exiting.")
         tasks = asyncio.Task.all_tasks(loop)
         for task in tasks:
             task.cancel()
