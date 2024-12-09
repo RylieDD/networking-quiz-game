@@ -60,6 +60,7 @@ Things that could have been improved were:
 1. I could have taken more time to properly understand state synchronization and how to apply the asyncio library, so I could have prevented a significant time sink to fix the synchronization of the clients.
 2. I could have first planned out any gameplay logic on paper before just starting to apply it to the quiz through code to have saved time with fixing logic mistakes.
 3. I could have reached out to TAs or the instructor sooner when I was facing roadblocks.
+4. I could have applied further error handling clean-up if I had successfully implemented the state synchronization earlier in the project. 
 
 Given more time, I would like to take this project to where there is a simple GUI to interact with to answer questions instead of using the terminal, more questions that would track the topics of the questions and suggest where a user could focus their studying on, and a more robust and secure encryption implementation for users.
 
