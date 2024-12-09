@@ -5,13 +5,14 @@ from collections import deque
 import sys
 import logging
 
-class AsyncMessage:
+#This Message class contains all the Client Messaging Protocol logic to read, write, encode, decode, process, and send the client input and the server responses.
+#The game state of the clients to output the quiz questions and options is also handled here.
+class Message:
     def __init__(self, reader, writer, loop):
         self.reader = reader
         self.writer = writer
         self.loop = loop
         self.username = None
-        self.score = 0
         self.quizStart = False
         self.quizEnd = False
         self.first_ques = False
@@ -19,7 +20,6 @@ class AsyncMessage:
         self.message_queue = deque()
         self.message_event = asyncio.Event()
         self.message_event.set()
-        self.question_num = 0
         self.wait = False
 
         #Setup logging
@@ -46,11 +46,11 @@ class AsyncMessage:
             self.writer.write(message)
             await self.writer.drain()
         except (asyncio.CancelledError, ConnectionResetError, BrokenPipeError) as e:
-            self.logger.error(f"Connection error while sending message: {e} for {self.addr}.")
+            self.logger.error(f"Connection error while sending message: {e} for {self.reader}.")
             print(f"Connection error while sending message: {e}")
             return
         except Exception as e:
-            self.logger.error(f"Error sending message: {e} for {self.addr}.")
+            self.logger.error(f"Error sending message: {e} for {self.reader}.")
             print(f"Error sending message: {e}")
 
     async def receive_messages(self):
@@ -71,19 +71,19 @@ class AsyncMessage:
                     decoded_message = self._json_decode(content, "utf-8")
                     self.message_queue.append(decoded_message)
                 except asyncio.IncompleteReadError:
-                    self.logger.error(f"Connection closed by server. for {self.addr}.")
+                    self.logger.error(f"Connection closed by server. for {self.reader}.")
                     print("Connection closed by server.")
                     break
                 except ConnectionResetError:
-                    self.logger.error(f"Server connection reset. Exiting message receiving. for {self.addr}.")
+                    self.logger.error(f"Server connection reset. Exiting message receiving. for {self.reader}.")
                     print("Server connection reset. Exiting message receiving.")
                     break
                 except Exception as e:
-                    self.logger.error(f"Error receiving message: {e} for {self.addr}.")
+                    self.logger.error(f"Error receiving message: {e} for {self.reader}.")
                     print(f"Error receiving message: {e}")
                     await asyncio.sleep(0.1)
         except KeyboardInterrupt:
-            self.logger.error(f"KeyboardInterrupt detected during message reception. Exiting. for {self.addr}.")
+            self.logger.error(f"KeyboardInterrupt detected during message reception. Exiting. for {self.reader}.")
             print("KeyboardInterrupt detected during message reception. Exiting.")
             
 
@@ -95,12 +95,12 @@ class AsyncMessage:
                         message = self.message_queue.popleft()
                         await self.process_response(message)
                     except Exception as e:
-                        self.logger.error(f"Error processing message: {e} for {self.addr}.")
+                        self.logger.error(f"Error processing message: {e} for {self.reader}.")
                         print(f"Error processing message: {e}")
                 await asyncio.sleep(0.1)
         except KeyboardInterrupt:
-            self.logger.error(f"KeyboardInterrupt detected during message processing. Exiting. for {self.addr}.")
-            print("\nKeyboardInterrupt detected during message processing. Exiting.")
+            self.logger.error(f"KeyboardInterrupt detected during message processing. Exiting. for {self.reader}.")
+            print("KeyboardInterrupt detected during message processing. Exiting.")
 
     async def process_response(self, response):
         try:
@@ -108,7 +108,6 @@ class AsyncMessage:
             input = response.get("input")
             if not action:
                 print(response.get("result", "Unknown response"))
-                print(response["input"])
                 return
             elif action.lower() == "exit":
                 sys.exit(1)
@@ -118,26 +117,26 @@ class AsyncMessage:
                 print(response["result"])
             elif action.lower() == "info":
                 print(response["result"])
-                print(response["input"])
+                print(input)
             elif action.lower() == "start":
                 print(response["result"])
                 self.waiting_for_question = True
             elif action.lower() == "question":
                 self.waiting_for_question = False
                 self.game_state(response)
-                print(response["input"])
+                print(input)
             elif action.lower() == "answer":
                 self.game_state(response)
-                #print(response["input"])
             elif action.lower() == "end":
+                self.quizStart = False
                 self.quizEnd = True
                 print(response["result"])
-                print(response["input"])
+                print(input)
             else:
                 print(f"Unknown action: {action}")
             
         except Exception as e:
-            self.logger.error(f"Error processing response: {e} for {self.addr}.")
+            self.logger.error(f"Error processing response: {e} for {self.reader}.")
             print(f"Error processing response: {e}")
 
     async def handle_user_inputs(self):
@@ -165,21 +164,20 @@ class AsyncMessage:
                         await asyncio.sleep(1)
                     elif self.quizStart:
                         user_input = await self.loop.run_in_executor(None, input, "")
-                        await self.send_message({"action": "answer", "choice": user_input})  
-                    elif self.quizEnd:
-                        user_input = await self.loop.run_in_executor(None, input, "")      
                         if user_input == "start":
                                 self.quizStart = True
-                                self.question_num = 0
+                                self.quizEnd = False
                                 await self.send_message({"action": user_input})
                         elif user_input == "exit":
                             await self.send_message({"action": user_input})
-                            sys.exit(1)
+                            break
+                        else:
+                            await self.send_message({"action": "answer", "choice": user_input})  
                 except KeyboardInterrupt:
-                    self.logger.error(f"Exiting input loop. for {self.addr}.")
+                    self.logger.error(f"Exiting input loop. for {self.reader}.")
                     print("Exiting input loop.")
                 except Exception as e:
-                    self.logger.error(f"Error handling user input: {e} {self.addr}.")
+                    self.logger.error(f"Error handling user input: {e} {self.reader}.")
                     print(f"Error handling user input: {e}")
                     break
     
