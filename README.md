@@ -15,7 +15,7 @@ NOTE: Ensure that the cert.pem and key.pem files are in the same directory as th
 ## Technologies Used
 * Python
 * Sockets
-* ssl
+* TLS
 
 ## Message Protocol
 The quiz game uses a JSON-based Message Protocol consisting of the Message Header and the Message Content. 
@@ -43,6 +43,7 @@ TLS encryption is utilized by the client and server to encrypt the traffic betwe
 2. pepper.cs.colostat.edu
 3. pumpkin.cs.colostate.edu
 4. potato.cs.colostate.edu
+
 The python ssl library was used to implement this encryption but it automatically utilizes the latest TLS version for the cryptographic protocol and older version of SSL have been set to not be used.
 
 ## Security/Risk Evaluation
