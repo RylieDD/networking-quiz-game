@@ -6,7 +6,8 @@ import io
 import struct
 import logging
 
-
+#This Message class contains all the Server Messaging Protocol logic to read, write, encode, decode, process, and create the client requests and the server responses. 
+#The quiz questions with their options and correct answers are contained in the Message class.
 class Message:
     def __init__(self, selector, sock, addr, handler = None):
         self.selector = selector
@@ -19,15 +20,13 @@ class Message:
         self.request = None
         self.response_created = False
         self.username = None
-        self.connections = {}
-        self.num_ques = 0
-        self.question = None
         self.quizStart = False
         self.first_con = True
         self.score = 0
         self.action = None
         self.answer = None
         self.handler = handler
+        self.used_questions = []
         
         #Setup logging
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -51,16 +50,18 @@ class Message:
     def _read(self):
         try:
             data = self.sock.recv(4096)
-        except BlockingIOError:
-            pass
-        else:
             if data:
                 self._recv_buffer = b"" 
                 self._recv_buffer += data
             else:
                 self.logger.error(f"Error: Peer closed connection for {self.addr}.")
-                raise RuntimeError("Peer closed.")
-                self.close()
+                raise ConnectionResetError("Peer closed.")
+        except ConnectionResetError as e:
+            self.logger.warning(f"Connection reset by peer: {e}")
+            self.close()
+        except Exception as e:
+            self.logger.error(f"Unexpected error during read: {e}")
+            self.close()
     def _write(self):
         if self._send_buffer:
             try:
@@ -179,8 +180,12 @@ class Message:
                 "answer" : "D"
             }
         ]
+        remaining_questions = [q for q in questions if q not in self.used_questions]
+        if not remaining_questions:
+            self.used_questions = []
+            remaining_questions = questions
         question = random.choice(questions)
-        self.question = question
+        self.used_questions.append(question)
         return question
     def _create_response_json_content(self):
         action = self.request.get("action")
@@ -260,7 +265,6 @@ class Message:
         self._write()
         self.request = None
     def close(self):
-        self.del_connection(self.addr)
         try:
             self.selector.unregister(self.sock)
         except Exception as e:
@@ -280,6 +284,7 @@ class Message:
             )[0]
             self._recv_buffer = self._recv_buffer[hdrlen:]
     def process_jsonheader(self):
+        print("JSON Header: ", self.jsonheader)
         hdrlen = self._jsonheader_len
         if len(self._recv_buffer) >= hdrlen:
             self.jsonheader = self._json_decode(
@@ -322,12 +327,3 @@ class Message:
             self._set_selector_events_mask("rw")
             self.jsonheader = None
             self._jsonheader_len = None
-    def game_connections(self, username):
-        self.username = username
-        self.connections[self.username] = self.addr
-        self.logger.error(f"Peer started connection for {self.addr} with username {self.username}.")   
-    def del_connection(self, addr):
-        for key, value in list(self.connections.items()):
-            if value == addr:
-                print(f"", key, "disconnected.")
-                del self.connections[key]
