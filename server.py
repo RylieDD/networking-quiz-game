@@ -7,6 +7,7 @@ import selectors
 import time
 import traceback
 import libserver
+import ssl
 
 sel = selectors.DefaultSelector()
 connections = {}
@@ -14,12 +15,18 @@ messages = {}
 global quiz_state
 ready_event = asyncio.Event()
 
+def create_tls_context(certfile="cert.pem", keyfile="key.pem"):
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    context.load_cert_chain(certfile=certfile, keyfile=keyfile)
+    context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3  # Disable older, insecure protocols
+    context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1  # Optionally disable TLS 1.0 and 1.1
+    return context
+
 def accept_wrapper(sock):
     conn, addr = sock.accept()  # Should be ready to read
     conn.setblocking(False)
     message = libserver.Message(sel, conn, addr, handler=handle_action)
     length = len(connections)
-    print("Length: ", length)
     if len(connections) <= 2:
         connections[addr] = {'username': None, 'started': False, 'connected': False, 'responded': False}
         messages[addr] = {'message': message, 'mask': None}
@@ -32,15 +39,15 @@ if len(sys.argv) != 3:
     print (len(sys.argv))
     print("usage:", sys.argv[0], "-p <port>")
     sys.exit(1)
+tls_context = create_tls_context()
 host, port = "0.0.0.0", int(sys.argv[2])
 lsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-# Avoid bind() exception: OSError: [Errno 48] Address already in use
 lsock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 lsock.bind((host, port))
 lsock.listen()
-# print("listening on", (host, port))
 lsock.setblocking(False)
-sel.register(lsock, selectors.EVENT_READ, data=None)
+tls_sock = tls_context.wrap_socket(lsock, server_side=True)
+sel.register(tls_sock, selectors.EVENT_READ, data=None)
 
 async def handle_action(addr, action, answer=None):
     global quiz_state
@@ -94,24 +101,33 @@ async def handle_action(addr, action, answer=None):
     elif action.lower() == "answer":
         print(f"Received answer '{answer}' from {addr}.")
         await handle_answer(addr, answer)
+    elif action == "exit":
+        print(f"Client {addr} requested to exit.")
+        handle_disconnection(addr)
+        message = messages[addr]["message"]
+        await message.send_response(
+            {"result": "Goodbye! Closing connection..."}
+        )
+        message.close()
+        del messages[addr]
     else:
         message = messages[addr]["message"]
         await message.send_response({"result": f'Error: invalid action "{action}".'})
 
 async def broadcast_question():
     global quiz_state
-    if quiz_state['num_questions_asked'] > quiz_state['max_questions']:
+
+    if quiz_state["num_questions_asked"] > quiz_state["max_questions"]:
         print("Max questions reached. Ending quiz.")
         end_quiz()
         return
 
-    if not quiz_state["current_question"] or quiz_state["num_questions_asked"] == 0:
-        print("Generating new quiz question.")
-        question = libserver.Message.quiz_questions(libserver.Message)
+    else:
+        print("Generating quiz question.")
+        example_message = next(iter(messages.values()))["message"]
+        question = example_message.quiz_questions()
         quiz_state["current_question"] = question
         quiz_state["num_questions_asked"] += 1
-    else: 
-        question = quiz_state["current_question"]
 
     tasks = []
     for addr in connections:
@@ -150,14 +166,13 @@ async def handle_answer(addr, answer):
     message = messages[addr]["message"]
     await message.send_response(response)
 
-    active_clients = [addr for addr in connections if "responded" in connections[addr]]
-    if all(connections[client]["responded"] for client in active_clients):
+    if all(conn["responded"] for conn in connections.values()):
         reset_responses()
-        quiz_state['num_questions_asked'] += 1
-        if quiz_state["num_questions_asked"] <= quiz_state["max_questions"]:
+        if quiz_state["num_questions_asked"] < quiz_state["max_questions"]:
             await broadcast_question()
         else:
             await end_quiz()
+    
 
 def reset_responses():
     for conn in connections.values():
@@ -185,6 +200,10 @@ async def end_quiz():
     "max_questions": 10,
     "scores": {}
     } 
+    for addr in connections:
+        messages[addr]["message"].used_questions = []
+    message.jsonheader = None
+    message._jsonheader_len = None
     await asyncio.gather(*tasks)
 
 def handle_disconnection(addr):
@@ -228,15 +247,19 @@ async def main():
                                 await message.process_events(mask)
                         else:
                             print(f"Client {addr} not found in connections.")
+                    except RuntimeError as e:
+                        print(f"Runtime error for {addr}: {e}")
+                        handle_disconnection(addr)
+                        message.close()
                     except Exception as e:
-                        print(f"main: error: exception for {addr}: {traceback.format_exc()}")
+                        print(f"Unhandled error for {addr}: {traceback.format_exc()}")
                         handle_disconnection(addr)
                         message.close()
     except KeyboardInterrupt:
         print("caught keyboard interrupt, exiting")
     finally:
         sel.close()
-        
+        tls_sock.close()
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.run_until_complete(main())
