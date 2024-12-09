@@ -15,15 +15,17 @@ messages = {}
 global quiz_state
 ready_event = asyncio.Event()
 
+#Application of TLS using the provided cert.pem and key.pem
 def create_tls_context(certfile="cert.pem", keyfile="key.pem"):
     context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
     context.load_cert_chain(certfile=certfile, keyfile=keyfile)
-    context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3  # Disable older, insecure protocols
-    context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1  # Optionally disable TLS 1.0 and 1.1
+    context.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 
+    context.options |= ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1 
     return context
 
+#Starts the client connection to the server
 def accept_wrapper(sock):
-    conn, addr = sock.accept()  # Should be ready to read
+    conn, addr = sock.accept() 
     conn.setblocking(False)
     message = libserver.Message(sel, conn, addr, handler=handle_action)
     length = len(connections)
@@ -34,7 +36,7 @@ def accept_wrapper(sock):
     else:
         print(f"Too many players for the quiz game, rejecting connection from {addr}.")
         conn.close()
-
+#Starts the socket and applies the TLS context
 if len(sys.argv) != 3:
     print (len(sys.argv))
     print("usage:", sys.argv[0], "-p <port>")
@@ -49,6 +51,7 @@ lsock.setblocking(False)
 tls_sock = tls_context.wrap_socket(lsock, server_side=True)
 sel.register(tls_sock, selectors.EVENT_READ, data=None)
 
+#Handles actions from the clients that need to be synchronized
 async def handle_action(addr, action, answer=None):
     global quiz_state
     print(f"Received action '{action}' from {addr}")
@@ -114,6 +117,7 @@ async def handle_action(addr, action, answer=None):
         message = messages[addr]["message"]
         await message.send_response({"result": f'Error: invalid action "{action}".'})
 
+#Where the quiz questions are created and sent
 async def broadcast_question():
     global quiz_state
 
@@ -148,6 +152,7 @@ async def broadcast_question():
         await asyncio.gather(*tasks)
         print("Question sent to all clients.")
 
+#Where the clients answers are checked and the response message is created and sent
 async def handle_answer(addr, answer):
     global quiz_state
     if not quiz_state["current_question"]:
@@ -173,11 +178,12 @@ async def handle_answer(addr, answer):
         else:
             await end_quiz()
     
-
+#Resets the responded flag to allow client answers to be handled
 def reset_responses():
     for conn in connections.values():
         conn["responded"] = False
 
+#Where the end of quiz logic is handled
 async def end_quiz():
     global quiz_state
     scores = quiz_state["scores"]
@@ -206,15 +212,15 @@ async def end_quiz():
     message._jsonheader_len = None
     await asyncio.gather(*tasks)
 
+#Where disconnection by clients is handled
 def handle_disconnection(addr):
-    # Remove client from connections and messages
     if addr in connections:
         username = connections[addr].get("username", "Unknown")
         print(f"Client {username} at {addr} disconnected.")
         del connections[addr]
     if addr in messages:
         del messages[addr]
-
+#Main logic loop of the server
 async def main():
     try:
         while True:
@@ -240,7 +246,6 @@ async def main():
                                     messages[addr]['mask'] = mask
                                     if all(conn_data["responded"] for conn_data in connections.values()):
                                         await message.process_events(mask)
-                                    #connections[addr]['started'] = True
                                 else:
                                     await message.process_events(mask)
                             else:
