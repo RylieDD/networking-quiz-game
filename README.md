@@ -19,9 +19,11 @@ NOTE: Ensure that the cert.pem and key.pem files are in the same directory as th
 
 ## Message Protocol
 The quiz game uses a JSON-based Message Protocol consisting of the Message Header and the Message Content. 
+
 The Message Header has:
 1. A 2-byte header for the JSON header length.
 2. A JSON header with byte-order, content-type, content-encoding, and content-length.
+
 The Message Content has:
 1. A JSON object for the message data, which can range depending on the message type from and to the client.
 
